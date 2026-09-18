@@ -132,6 +132,7 @@ export default function ManifestDetailPage() {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const fileName = `${manifest.manifest_number}.pdf`;
+      const generatedFileId = response.headers.get("X-Manifest-Pdf-File-Id");
 
       if (disposition === "download") {
         const anchor = document.createElement("a");
@@ -143,18 +144,16 @@ export default function ManifestDetailPage() {
         setMessage("Manifest PDF berhasil diunduh.");
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       } else {
-        // Browser PDF viewers provide the native Print action and work well on
-        // desktop and Android without requiring a printer integration.
         const printWindow = window.open(url, "_blank", "noopener,noreferrer");
-        if (!printWindow) {
-          window.location.href = url;
-        }
+        if (!printWindow) window.location.href = url;
         setMessage("Manifest dibuka untuk dicetak. Pilih Print/Cetak pada PDF viewer.");
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       }
 
       setPdfReady(true);
-      setManifest((current) => current ? { ...current, pdf_file_id: current.pdf_file_id || "generated" } : current);
+      if (generatedFileId) {
+        setManifest((current) => current ? { ...current, pdf_file_id: generatedFileId } : current);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memproses manifest PDF.");
     } finally {
@@ -263,8 +262,8 @@ export default function ManifestDetailPage() {
               <button onClick={downloadPdf} disabled={pdfBusy || !pdfReady} style={{ padding: "11px 14px", border: "1px solid #d1d5db", borderRadius: 10, background: "white", color: "#111827", fontWeight: 800, opacity: pdfBusy || !pdfReady ? 0.5 : 1 }}>
                 Download PDF
               </button>
-              <button onClick={printPdf} disabled={pdfBusy || !pdfReady} style={{ padding: "11px 14px", border: "1px solid #d1d5db", borderRadius: 10, background: "white", color: "#111827", fontWeight: 800, opacity: pdfBusy || !pdfReady ? 0.5 : 1 }}>
-                Print Manifest
+              <button onClick={printPdf} disabled={pdfBusy} style={{ padding: "11px 14px", border: "1px solid #d1d5db", borderRadius: 10, background: "white", color: "#111827", fontWeight: 800, opacity: pdfBusy ? 0.5 : 1 }}>
+                {pdfReady ? "Print Manifest" : "Generate & Print"}
               </button>
             </div>
           )}
