@@ -1,6 +1,5 @@
 import { getSheetsClient } from "./sheets";
 import { googleConfig } from "./config";
-import { ensureManifestSheets } from "./schema";
 import { ActivityLog, Manifest, ManifestItem, ManifestStatus, SHEET_HEADERS } from "@/types/domain";
 
 function rowToObject<T>(headers: readonly string[], row: string[]): T {
@@ -15,7 +14,6 @@ function assertSpreadsheet() {
 
 async function getClient() {
   assertSpreadsheet();
-  await ensureManifestSheets();
   return getSheetsClient();
 }
 
