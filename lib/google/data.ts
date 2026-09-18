@@ -81,6 +81,25 @@ export async function updateManifestTotal(manifestId: string, totalAwb: number):
   });
 }
 
+export async function updateManifestPdf(manifestId: string, fileId: string, url: string): Promise<void> {
+  const manifests = await listManifests();
+  const index = manifests.findIndex((item) => item.manifest_id === manifestId);
+  if (index < 0) throw new Error("Manifest tidak ditemukan.");
+  const rowNumber = index + 2;
+  const client = getSheetsClient();
+  await client.spreadsheets.values.batchUpdate({
+    spreadsheetId: googleConfig.spreadsheetId,
+    requestBody: {
+      valueInputOption: "RAW",
+      data: [
+        { range: `MANIFESTS!T${rowNumber}`, values: [[fileId]] },
+        { range: `MANIFESTS!U${rowNumber}`, values: [[url]] },
+        { range: `MANIFESTS!O${rowNumber}`, values: [[new Date().toISOString()]] },
+      ],
+    },
+  });
+}
+
 export async function updateManifestStatus(
   manifestId: string,
   status: ManifestStatus,
