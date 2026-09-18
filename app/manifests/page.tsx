@@ -36,12 +36,18 @@ export default function ManifestsPage() {
             {manifests.slice().reverse().map((manifest) => (
               <article key={manifest.manifest_id} style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div><strong style={{ fontSize: 18 }}>{manifest.manifest_number}</strong><div style={{ marginTop: 5, color: "#6b7280" }}>{manifest.sprinter_id} • {manifest.shift} • {manifest.manifest_date}</div></div>
+                  <div>
+                    <Link href={`/manifests/${encodeURIComponent(manifest.manifest_id)}`} style={{ color: "#111827", textDecoration: "none" }}><strong style={{ fontSize: 18 }}>{manifest.manifest_number}</strong></Link>
+                    <div style={{ marginTop: 5, color: "#6b7280" }}>{manifest.sprinter_id} • {manifest.shift} • {manifest.manifest_date}</div>
+                  </div>
                   <span style={{ alignSelf: "flex-start", padding: "5px 9px", borderRadius: 999, background: "#f3f4f6", fontSize: 12, fontWeight: 700 }}>{manifest.status}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
                   <span>{manifest.total_awb || 0} AWB</span>
-                  <Link href={`/scan?manifestId=${encodeURIComponent(manifest.manifest_id)}&manifestNumber=${encodeURIComponent(manifest.manifest_number)}`} style={{ color: "#111827", fontWeight: 700 }}>Scan AWB →</Link>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                    <Link href={`/manifests/${encodeURIComponent(manifest.manifest_id)}`} style={{ color: "#111827", fontWeight: 700 }}>Detail</Link>
+                    {manifest.status !== "COMPLETED" && manifest.status !== "CANCELLED" && <Link href={`/scan?manifestId=${encodeURIComponent(manifest.manifest_id)}&manifestNumber=${encodeURIComponent(manifest.manifest_number)}`} style={{ color: "#111827", fontWeight: 700 }}>Scan AWB →</Link>}
+                  </div>
                 </div>
               </article>
             ))}
