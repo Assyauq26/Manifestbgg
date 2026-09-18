@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Readable } from "node:stream";
 import { findManifest, listManifestItems, googleErrorMessage, updateManifestPdf } from "@/lib/google/data";
 import { generateManifestPdf } from "@/lib/manifest/pdf";
 import { getDriveClient, uploadManifestPdf } from "@/lib/google/drive";
@@ -58,7 +59,7 @@ export async function POST(_request: Request, context: Context) {
       const drive = getDriveClient();
       await drive.files.update({
         fileId: manifest.pdf_file_id,
-        media: { mimeType: "application/pdf", body: Buffer.from(pdf) },
+        media: { mimeType: "application/pdf", body: Readable.from(pdf) },
       });
       return pdfResponse(pdf, fileName, "inline", manifest.pdf_file_id);
     }
