@@ -3,7 +3,6 @@ function required(name: string): string {
   if (!value) throw new Error("Missing server environment variable: " + name);
   return value;
 }
-
 export const googleConfig = {
   projectId: required("GOOGLE_PROJECT_ID"),
   clientEmail: required("GOOGLE_CLIENT_EMAIL"),
