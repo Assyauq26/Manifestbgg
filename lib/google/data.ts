@@ -1,7 +1,7 @@
 import { getSheetsClient } from "./sheets";
 import { googleConfig } from "./config";
 import { ensureManifestSheets } from "./schema";
-import { Manifest, ManifestItem, SHEET_HEADERS } from "@/types/domain";
+import { ActivityLog, Manifest, ManifestItem, ManifestStatus, SHEET_HEADERS } from "@/types/domain";
 
 function rowToObject<T>(headers: readonly string[], row: string[]): T {
   const obj: Record<string, string> = {};
@@ -13,10 +13,14 @@ function assertSpreadsheet() {
   if (!googleConfig.spreadsheetId) throw new Error("GOOGLE_SPREADSHEET_ID is not configured.");
 }
 
-export async function listManifests(): Promise<Manifest[]> {
+async function getClient() {
   assertSpreadsheet();
   await ensureManifestSheets();
-  const client = getSheetsClient();
+  return getSheetsClient();
+}
+
+export async function listManifests(): Promise<Manifest[]> {
+  const client = await getClient();
   const response = await client.spreadsheets.values.get({ spreadsheetId: googleConfig.spreadsheetId, range: "MANIFESTS!A2:U" });
   return (response.data.values ?? []).filter((row) => row[0]).map((row) => rowToObject<Manifest>(SHEET_HEADERS.MANIFESTS, row));
 }
@@ -27,17 +31,16 @@ export async function findManifest(manifestId: string): Promise<Manifest | null>
 }
 
 export async function listManifestItems(manifestId: string): Promise<ManifestItem[]> {
-  assertSpreadsheet();
-  await ensureManifestSheets();
-  const client = getSheetsClient();
+  const client = await getClient();
   const response = await client.spreadsheets.values.get({ spreadsheetId: googleConfig.spreadsheetId, range: "MANIFEST_ITEMS!A2:H" });
-  return (response.data.values ?? []).filter((row) => row[1] === manifestId).map((row) => rowToObject<ManifestItem>(SHEET_HEADERS.MANIFEST_ITEMS, row));
+  return (response.data.values ?? [])
+    .filter((row) => row[1] === manifestId)
+    .map((row) => rowToObject<ManifestItem>(SHEET_HEADERS.MANIFEST_ITEMS, row))
+    .sort((a, b) => a.sequence - b.sequence);
 }
 
 export async function appendManifest(manifest: Manifest): Promise<Manifest> {
-  assertSpreadsheet();
-  await ensureManifestSheets();
-  const client = getSheetsClient();
+  const client = await getClient();
   await client.spreadsheets.values.append({
     spreadsheetId: googleConfig.spreadsheetId,
     range: "MANIFESTS!A:U",
@@ -49,9 +52,7 @@ export async function appendManifest(manifest: Manifest): Promise<Manifest> {
 }
 
 export async function appendManifestItem(item: ManifestItem): Promise<ManifestItem> {
-  assertSpreadsheet();
-  await ensureManifestSheets();
-  const client = getSheetsClient();
+  const client = await getClient();
   await client.spreadsheets.values.append({
     spreadsheetId: googleConfig.spreadsheetId,
     range: "MANIFEST_ITEMS!A:H",
@@ -63,7 +64,6 @@ export async function appendManifestItem(item: ManifestItem): Promise<ManifestIt
 }
 
 export async function updateManifestTotal(manifestId: string, totalAwb: number): Promise<void> {
-  assertSpreadsheet();
   const manifests = await listManifests();
   const index = manifests.findIndex((item) => item.manifest_id === manifestId);
   if (index < 0) throw new Error("Manifest tidak ditemukan.");
@@ -81,13 +81,56 @@ export async function updateManifestTotal(manifestId: string, totalAwb: number):
   });
 }
 
+export async function updateManifestStatus(
+  manifestId: string,
+  status: ManifestStatus,
+  fields: Partial<Pick<Manifest, "handed_over_at" | "received_by" | "received_phone" | "notes">> = {},
+): Promise<Manifest> {
+  const manifests = await listManifests();
+  const index = manifests.findIndex((item) => item.manifest_id === manifestId);
+  if (index < 0) throw new Error("Manifest tidak ditemukan.");
+
+  const manifest = manifests[index];
+  const client = getSheetsClient();
+  const rowNumber = index + 2;
+  const now = new Date().toISOString();
+  const data: Array<{ range: string; values: string[][] }> = [
+    { range: `MANIFESTS!L${rowNumber}`, values: [[status]] },
+    { range: `MANIFESTS!O${rowNumber}`, values: [[now]] },
+  ];
+
+  if (fields.handed_over_at !== undefined) data.push({ range: `MANIFESTS!P${rowNumber}`, values: [[fields.handed_over_at]] });
+  if (fields.received_by !== undefined) data.push({ range: `MANIFESTS!Q${rowNumber}`, values: [[fields.received_by]] });
+  if (fields.received_phone !== undefined) data.push({ range: `MANIFESTS!R${rowNumber}`, values: [[fields.received_phone]] });
+  if (fields.notes !== undefined) data.push({ range: `MANIFESTS!S${rowNumber}`, values: [[fields.notes]] });
+
+  await client.spreadsheets.values.batchUpdate({
+    spreadsheetId: googleConfig.spreadsheetId,
+    requestBody: { valueInputOption: "RAW", data },
+  });
+
+  return { ...manifest, ...fields, status, updated_at: now };
+}
+
+export async function appendActivityLog(log: ActivityLog): Promise<ActivityLog> {
+  const client = await getClient();
+  await client.spreadsheets.values.append({
+    spreadsheetId: googleConfig.spreadsheetId,
+    range: "LOGS!A:J",
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [[...SHEET_HEADERS.LOGS].map((header) => String(log[header as keyof ActivityLog] ?? ""))] },
+  });
+  return log;
+}
+
 export async function nextManifestSequence(date: string, sellerCode: string): Promise<number> {
   const manifests = await listManifests();
   const prefix = `${sellerCode.toUpperCase()}-${date.replace(/-/g, "")}-`;
   const sequences = manifests
     .filter((manifest) => manifest.manifest_number.startsWith(prefix))
     .map((manifest) => Number(manifest.manifest_number.slice(prefix.length)))
-    .filter((value) => Number.isInteger(value));
+    .filter((value) => Number.isInteger(value) && value > 0);
   return sequences.length ? Math.max(...sequences) + 1 : 1;
 }
 
