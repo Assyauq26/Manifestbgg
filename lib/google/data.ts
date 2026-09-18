@@ -3,11 +3,10 @@ import { googleConfig } from "./config";
 import { ensureManifestSheets } from "./schema";
 import { Manifest, ManifestItem, SHEET_HEADERS } from "@/types/domain";
 
-function rowToObject<T extends Record<string, unknown>>(headers: readonly string[], row: string[]): T {
-  return headers.reduce((obj, header, index) => {
-    obj[header] = row[index] ?? "";
-    return obj;
-  }, {} as T);
+function rowToObject<T>(headers: readonly string[], row: string[]): T {
+  const obj: Record<string, string> = {};
+  headers.forEach((header, index) => { obj[header] = row[index] ?? ""; });
+  return obj as T;
 }
 
 function assertSpreadsheet() {
