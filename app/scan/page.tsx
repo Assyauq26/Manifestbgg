@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 type DetectedCode = { rawValue?: string };
 type Detector = { detect: (source: HTMLVideoElement) => Promise<DetectedCode[]> };
 
-export default function ScanPage() {
+function ScanPageContent() {
   const params = useSearchParams();
   const manifestId = params.get("manifestId") ?? "";
   const manifestNumber = params.get("manifestNumber") ?? "";
@@ -141,5 +141,13 @@ export default function ScanPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function ScanPage() {
+  return (
+    <Suspense fallback={<main style={{ minHeight: "100vh", padding: 16 }}><div style={{ maxWidth: 760, margin: "0 auto" }}>Memuat scanner...</div></main>}>
+      <ScanPageContent />
+    </Suspense>
   );
 }
