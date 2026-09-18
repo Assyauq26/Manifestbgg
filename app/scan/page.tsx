@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+type DetectedCode = { rawValue?: string };
+type Detector = { detect: (source: HTMLVideoElement) => Promise<DetectedCode[]> };
+
 export default function ScanPage() {
   const params = useSearchParams();
   const manifestId = params.get("manifestId") ?? "";
   const manifestNumber = params.get("manifestNumber") ?? "";
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<BarcodeDetector | null>(null);
+  const detectorRef = useRef<Detector | null>(null);
   const busyRef = useRef(false);
   const [cameraStarted, setCameraStarted] = useState(false);
   const [awb, setAwb] = useState("");
@@ -28,9 +31,7 @@ export default function ScanPage() {
       .catch(() => setError("Gagal memuat data manifest."));
   }, [manifestId]);
 
-  useEffect(() => {
-    return () => streamRef.current?.getTracks().forEach((track) => track.stop());
-  }, []);
+  useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
   async function startCamera() {
     setCameraError("");
@@ -46,9 +47,9 @@ export default function ScanPage() {
         await videoRef.current.play();
       }
       setCameraStarted(true);
-      if ("BarcodeDetector" in window) {
-        const Detector = window.BarcodeDetector;
-        detectorRef.current = new Detector({ formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "data_matrix"] });
+      const BarcodeDetectorCtor = (window as unknown as { BarcodeDetector?: new (options?: { formats?: string[] }) => Detector }).BarcodeDetector;
+      if (BarcodeDetectorCtor) {
+        detectorRef.current = new BarcodeDetectorCtor({ formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "data_matrix"] });
         requestAnimationFrame(scanFrame);
       } else {
         setCameraError("BarcodeDetector belum didukung browser ini. Kamera aktif, gunakan input AWB manual.");
@@ -61,11 +62,8 @@ export default function ScanPage() {
   async function scanFrame() {
     const video = videoRef.current;
     const detector = detectorRef.current;
-    if (!video || !detector || video.readyState < 2) {
-      if (cameraStarted) requestAnimationFrame(scanFrame);
-      return;
-    }
-    if (!busyRef.current) {
+    if (!video || !detector || !streamRef.current) return;
+    if (!busyRef.current && video.readyState >= 2) {
       try {
         const codes = await detector.detect(video);
         const value = codes[0]?.rawValue?.trim();
@@ -75,10 +73,10 @@ export default function ScanPage() {
           window.setTimeout(() => { busyRef.current = false; }, 1000);
         }
       } catch {
-        // Continue scanning; camera frames can occasionally fail to decode.
+        // Continue scanning when a frame cannot be decoded.
       }
     }
-    if (cameraStarted) requestAnimationFrame(scanFrame);
+    if (streamRef.current) requestAnimationFrame(scanFrame);
   }
 
   async function submitAwb(value = awb) {
@@ -144,13 +142,4 @@ export default function ScanPage() {
       </div>
     </main>
   );
-}
-
-declare global {
-  interface Window {
-    BarcodeDetector: typeof BarcodeDetector;
-  }
-  var BarcodeDetector: {
-    new (options?: { formats?: string[] }): BarcodeDetector;
-  };
 }
