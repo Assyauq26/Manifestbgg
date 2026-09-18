@@ -2,6 +2,11 @@ import { ExternalAccountClient, GoogleAuth } from "google-auth-library";
 import { getVercelOidcToken } from "@vercel/oidc";
 import { googleConfig } from "./config";
 
+const GOOGLE_SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/drive",
+];
+
 function buildAudience() {
   return (
     "//iam.googleapis.com/projects/" +
@@ -34,5 +39,12 @@ export function getGoogleAuth() {
     throw new Error("Failed to initialize Google external account client.");
   }
 
-  return new GoogleAuth({ authClient: externalAccount });
+  // The impersonated service-account token must explicitly request
+  // the OAuth scopes required by Google Sheets and Google Drive.
+  externalAccount.scopes = GOOGLE_SCOPES;
+
+  return new GoogleAuth({
+    authClient: externalAccount,
+    projectId: googleConfig.projectId,
+  });
 }
