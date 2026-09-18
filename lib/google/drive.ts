@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { Readable } from "node:stream";
 import { getGoogleAuth } from "./auth";
 import { googleConfig } from "./config";
 
@@ -19,7 +20,8 @@ export async function uploadManifestPdf(fileName: string, pdf: Buffer) {
       parents: [googleConfig.driveFolderId],
       mimeType: "application/pdf",
     },
-    media: { mimeType: "application/pdf", body: Buffer.from(pdf) },
+    // googleapis multipart upload expects a readable stream here.
+    media: { mimeType: "application/pdf", body: Readable.from(pdf) },
     fields: "id,name,webViewLink,webContentLink",
   });
   const file = response.data;
