@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findManifest, listManifestItems, googleErrorMessage } from "@/lib/google/data";
+import { findManifest, listManifestItems, googleErrorMessage, updateManifestPdf } from "@/lib/google/data";
 import { generateManifestPdf } from "@/lib/manifest/pdf";
 import { uploadManifestPdf } from "@/lib/google/drive";
 
@@ -21,6 +21,7 @@ export async function POST(_request: Request, context: Context) {
     const pdf = await generateManifestPdf(manifest, items);
     const fileName = `${manifest.manifest_number}.pdf`;
     const stored = await uploadManifestPdf(fileName, pdf);
+    await updateManifestPdf(manifestId, stored.fileId, stored.url);
 
     return new NextResponse(pdf as BodyInit, {
       status: 200,
