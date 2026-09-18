@@ -1,10 +1,5 @@
 import { google } from "googleapis";
-import { googleConfig } from "./config";
-const auth = new google.auth.JWT({
-  email: googleConfig.clientEmail,
-  key: googleConfig.privateKey,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"]
-});
+import { getGoogleAuth } from "./auth";
 export function getSheetsClient() {
-  return google.sheets({ version: "v4", auth });
+  return google.sheets({ version: "v4", auth: getGoogleAuth() });
 }
