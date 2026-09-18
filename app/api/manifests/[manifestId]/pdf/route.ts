@@ -8,15 +8,14 @@ export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ manifestId: string }> };
 
-async function pdfResponse(pdf: Buffer, fileName: string, disposition: "inline" | "attachment") {
-  return new NextResponse(pdf as BodyInit, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="${fileName}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+async function pdfResponse(pdf: Buffer, fileName: string, disposition: "inline" | "attachment", fileId?: string) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `${disposition}; filename="${fileName}"`,
+    "Cache-Control": "private, no-store",
+  };
+  if (fileId) headers["X-Manifest-Pdf-File-Id"] = fileId;
+  return new NextResponse(pdf as BodyInit, { status: 200, headers });
 }
 
 export async function GET(_request: Request, context: Context) {
@@ -35,7 +34,7 @@ export async function GET(_request: Request, context: Context) {
     );
     const pdf = Buffer.from(response.data as ArrayBuffer);
     const fileName = `${manifest.manifest_number}.pdf`;
-    return pdfResponse(pdf, fileName, "inline");
+    return pdfResponse(pdf, fileName, "inline", manifest.pdf_file_id);
   } catch (error) {
     return NextResponse.json({ ok: false, error: googleErrorMessage(error) }, { status: 500 });
   }
@@ -55,30 +54,19 @@ export async function POST(_request: Request, context: Context) {
     const pdf = await generateManifestPdf({ ...manifest, total_awb: items.length }, items);
     const fileName = `${manifest.manifest_number}.pdf`;
 
-    // If a PDF already exists, keep generation idempotent at the UI level by
-    // reusing the existing file. The GET endpoint serves that stored PDF.
     if (manifest.pdf_file_id) {
       const drive = getDriveClient();
       await drive.files.update({
         fileId: manifest.pdf_file_id,
         media: { mimeType: "application/pdf", body: Buffer.from(pdf) },
       });
-      return pdfResponse(pdf, fileName, "inline");
+      return pdfResponse(pdf, fileName, "inline", manifest.pdf_file_id);
     }
 
     const stored = await uploadManifestPdf(fileName, pdf);
     await updateManifestPdf(manifestId, stored.fileId, stored.url);
 
-    return new NextResponse(pdf as BodyInit, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "X-Manifest-Pdf-File-Id": stored.fileId,
-        "X-Manifest-Pdf-Url": stored.url,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    return pdfResponse(pdf, fileName, "inline", stored.fileId);
   } catch (error) {
     return NextResponse.json({ ok: false, error: googleErrorMessage(error) }, { status: 500 });
   }
