@@ -1,4 +1,3 @@
-import { google } from "googleapis";
 import { getSheetsClient } from "./sheets";
 import { googleConfig } from "./config";
 import { ensureManifestSheets } from "./schema";
@@ -19,10 +18,7 @@ export async function listManifests(): Promise<Manifest[]> {
   assertSpreadsheet();
   await ensureManifestSheets();
   const client = getSheetsClient();
-  const response = await client.spreadsheets.values.get({
-    spreadsheetId: googleConfig.spreadsheetId,
-    range: "MANIFESTS!A2:U",
-  });
+  const response = await client.spreadsheets.values.get({ spreadsheetId: googleConfig.spreadsheetId, range: "MANIFESTS!A2:U" });
   return (response.data.values ?? []).filter((row) => row[0]).map((row) => rowToObject<Manifest>(SHEET_HEADERS.MANIFESTS, row));
 }
 
@@ -35,13 +31,8 @@ export async function listManifestItems(manifestId: string): Promise<ManifestIte
   assertSpreadsheet();
   await ensureManifestSheets();
   const client = getSheetsClient();
-  const response = await client.spreadsheets.values.get({
-    spreadsheetId: googleConfig.spreadsheetId,
-    range: "MANIFEST_ITEMS!A2:H",
-  });
-  return (response.data.values ?? [])
-    .filter((row) => row[1] === manifestId)
-    .map((row) => rowToObject<ManifestItem>(SHEET_HEADERS.MANIFEST_ITEMS, row));
+  const response = await client.spreadsheets.values.get({ spreadsheetId: googleConfig.spreadsheetId, range: "MANIFEST_ITEMS!A2:H" });
+  return (response.data.values ?? []).filter((row) => row[1] === manifestId).map((row) => rowToObject<ManifestItem>(SHEET_HEADERS.MANIFEST_ITEMS, row));
 }
 
 export async function appendManifest(manifest: Manifest): Promise<Manifest> {
@@ -53,7 +44,7 @@ export async function appendManifest(manifest: Manifest): Promise<Manifest> {
     range: "MANIFESTS!A:U",
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [[...SHEET_HEADERS.MANIFESTS].map((header) => String(manifest[header as keyof Manifest] ?? "")] ] },
+    requestBody: { values: [[...SHEET_HEADERS.MANIFESTS].map((header) => String(manifest[header as keyof Manifest] ?? ""))] },
   });
   return manifest;
 }
@@ -67,7 +58,7 @@ export async function appendManifestItem(item: ManifestItem): Promise<ManifestIt
     range: "MANIFEST_ITEMS!A:H",
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [[...SHEET_HEADERS.MANIFEST_ITEMS].map((header) => String(item[header as keyof ManifestItem] ?? "")] ] },
+    requestBody: { values: [[...SHEET_HEADERS.MANIFEST_ITEMS].map((header) => String(item[header as keyof ManifestItem] ?? ""))] },
   });
   return item;
 }
