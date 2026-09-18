@@ -12,11 +12,13 @@
     "google-auth-library": "latest",
     "googleapis": "latest",
     "next": "latest",
+    "pdfkit": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/pdfkit": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "typescript": "latest"
