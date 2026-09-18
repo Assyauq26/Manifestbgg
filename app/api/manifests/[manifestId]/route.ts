@@ -8,6 +8,15 @@ type Context = { params: Promise<{ manifestId: string }> };
 
 const VALID_STATUSES: ManifestStatus[] = ["DRAFT", "READY", "IN_DELIVERY", "HANDED_OVER", "COMPLETED", "CANCELLED"];
 
+const ALLOWED_TRANSITIONS: Record<ManifestStatus, ManifestStatus[]> = {
+  DRAFT: ["READY", "CANCELLED"],
+  READY: ["IN_DELIVERY", "CANCELLED"],
+  IN_DELIVERY: ["HANDED_OVER"],
+  HANDED_OVER: ["COMPLETED"],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
 export async function GET(_request: Request, context: Context) {
   try {
     const { manifestId } = await context.params;
@@ -29,16 +38,24 @@ export async function PATCH(request: Request, context: Context) {
 
     if (!manifest) return NextResponse.json({ ok: false, error: "Manifest tidak ditemukan." }, { status: 404 });
     if (!VALID_STATUSES.includes(status)) return NextResponse.json({ ok: false, error: "Status manifest tidak valid." }, { status: 400 });
-    if (manifest.status === "COMPLETED" && status !== "COMPLETED") {
-      return NextResponse.json({ ok: false, error: "Manifest yang sudah COMPLETED tidak dapat diubah." }, { status: 409 });
-    }
-    if (manifest.status === "CANCELLED" && status !== "CANCELLED") {
-      return NextResponse.json({ ok: false, error: "Manifest yang sudah CANCELLED tidak dapat dibuka kembali." }, { status: 409 });
+    if (manifest.status === status) return NextResponse.json({ ok: true, manifest, items: await listManifestItems(manifestId) });
+
+    const allowed = ALLOWED_TRANSITIONS[manifest.status] ?? [];
+    if (!allowed.includes(status)) {
+      return NextResponse.json(
+        { ok: false, error: `Perubahan status ${manifest.status} → ${status} tidak diizinkan.` },
+        { status: 409 },
+      );
     }
 
     const items = await listManifestItems(manifestId);
+
     if (status === "READY" && items.length === 0) {
       return NextResponse.json({ ok: false, error: "Manifest harus memiliki minimal 1 AWB sebelum READY." }, { status: 409 });
+    }
+
+    if (status === "HANDED_OVER" && items.length === 0) {
+      return NextResponse.json({ ok: false, error: "Manifest tidak dapat HANDED_OVER tanpa AWB." }, { status: 409 });
     }
 
     const fields = {
