@@ -2,64 +2,73 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { sellerCodeFromName, formatManifestNumber } from "@/lib/manifest";
 
-function sellerCode(name: string) {
-  return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "XX";
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function NewManifestPage() {
+  const router = useRouter();
   const [seller, setSeller] = useState("ZR FASHION");
-  const [date, setDate] = useState("2026-09-18");
-  const [sequence, setSequence] = useState("001");
-  const [awbs, setAwbs] = useState<string[]>([]);
-  const [bulk, setBulk] = useState("");
-  const code = useMemo(() => sellerCode(seller), [seller]);
-  const manifestNumber = code + "-" + date.replaceAll("-", "") + "-" + sequence.padStart(3, "0");
+  const [date, setDate] = useState(today);
+  const [shift, setShift] = useState("PAGI");
+  const [sprinter, setSprinter] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const code = useMemo(() => sellerCodeFromName(seller), [seller]);
+  const preview = formatManifestNumber(code, date, 1) + " (sequence otomatis)";
 
-  function addBulk() {
-    const values = bulk.split(/[\n,\t ]+/).map((v) => v.trim()).filter(Boolean);
-    const unique = Array.from(new Set([...awbs, ...values]));
-    setAwbs(unique);
-    setBulk("");
-  }
-
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
-    alert("Draft manifest " + manifestNumber + " siap. Total AWB: " + awbs.length);
+    setError("");
+    setSaving(true);
+    try {
+      const response = await fetch("/api/manifests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sellerName: seller, date, shift, sprinterName: sprinter, dropPoint: "BGG16" }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Gagal membuat manifest.");
+      router.push(`/scan?manifestId=${encodeURIComponent(result.manifest.manifest_id)}&manifestNumber=${encodeURIComponent(result.manifest.manifest_number)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membuat manifest.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <main style={{ minHeight: "100vh", padding: 24 }}>
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <Link href="/manifests" style={{ color: "#6b7280" }}>← Manifest</Link>
-        <h1>Buat Manifest Retur</h1>
+        <div style={{ margin: "18px 0 24px" }}>
+          <p style={{ margin: 0, color: "#6b7280", fontSize: 13 }}>BGG16 • Operasional Kurir</p>
+          <h1 style={{ margin: "6px 0 0" }}>Buat Manifest Retur</h1>
+        </div>
+
         <form onSubmit={submit} style={{ display: "grid", gap: 20 }}>
           <section style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 14, padding: 24 }}>
             <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-              <label>Tanggal<input value={date} onChange={(e) => setDate(e.target.value)} type="date" style={{ width: "100%", padding: 12, marginTop: 6 }} /></label>
-              <label>Shift<select style={{ width: "100%", padding: 12, marginTop: 6, background: "white" }}><option>PAGI</option><option>SIANG</option><option>MALAM</option></select></label>
-              <label>Drop Point<input value="BGG16" readOnly style={{ width: "100%", padding: 12, marginTop: 6, background: "#f3f4f6" }} /></label>
-              <label>Sprinter<input placeholder="RIFAN" style={{ width: "100%", padding: 12, marginTop: 6 }} /></label>
-              <label style={{ gridColumn: "1 / -1" }}>Seller<input value={seller} onChange={(e) => setSeller(e.target.value)} style={{ width: "100%", padding: 12, marginTop: 6 }} /></label>
-              <label>Seller Code<input value={code} readOnly style={{ width: "100%", padding: 12, marginTop: 6, background: "#f3f4f6" }} /></label>
-              <label>Sequence<input value={sequence} onChange={(e) => setSequence(e.target.value)} inputMode="numeric" style={{ width: "100%", padding: 12, marginTop: 6 }} /></label>
+              <label>Tanggal<input required value={date} onChange={(e) => setDate(e.target.value)} type="date" style={{ width: "100%", padding: 12, marginTop: 6, boxSizing: "border-box" }} /></label>
+              <label>Shift<select value={shift} onChange={(e) => setShift(e.target.value)} style={{ width: "100%", padding: 12, marginTop: 6, background: "white" }}><option>PAGI</option><option>SIANG</option><option>MALAM</option></select></label>
+              <label>Drop Point<input value="BGG16" readOnly style={{ width: "100%", padding: 12, marginTop: 6, boxSizing: "border-box", background: "#f3f4f6" }} /></label>
+              <label>Nama Kurir / Sprinter<input required value={sprinter} onChange={(e) => setSprinter(e.target.value)} placeholder="Contoh: RIFAN" style={{ width: "100%", padding: 12, marginTop: 6, boxSizing: "border-box" }} /></label>
+              <label style={{ gridColumn: "1 / -1" }}>Seller<input required value={seller} onChange={(e) => setSeller(e.target.value)} placeholder="Nama seller" style={{ width: "100%", padding: 12, marginTop: 6, boxSizing: "border-box" }} /></label>
             </div>
-            <div style={{ marginTop: 18, padding: 14, borderRadius: 10, background: "#f9fafb" }}><strong>Manifest Number:</strong> {manifestNumber}</div>
+            <div style={{ marginTop: 18, padding: 14, borderRadius: 10, background: "#f9fafb" }}>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>Preview kode</div>
+              <strong>{preview}</strong>
+            </div>
           </section>
 
-          <section style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 14, padding: 24 }}>
-            <h2 style={{ marginTop: 0 }}>Bulk AWB</h2>
-            <textarea value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder="Paste AWB, satu per baris..." rows={8} style={{ width: "100%", padding: 12, resize: "vertical" }} />
-            <button type="button" onClick={addBulk} style={{ marginTop: 12, padding: "10px 14px", border: 0, borderRadius: 10, background: "#111827", color: "white" }}>Tambah AWB</button>
-            <div style={{ marginTop: 18 }}><strong>{awbs.length}</strong> AWB</div>
-            <ol>{awbs.slice(0, 20).map((awb) => <li key={awb}>{awb}</li>)}</ol>
-            {awbs.length > 20 && <p>Menampilkan 20 pertama dari {awbs.length} AWB.</p>}
-          </section>
+          {error && <div role="alert" style={{ padding: 14, borderRadius: 10, background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca" }}>{error}</div>}
 
-          <div style={{ display: "flex", gap: 12 }}>
-            <button type="submit" style={{ padding: "12px 18px", border: 0, borderRadius: 10, background: "#111827", color: "white", fontWeight: 700 }}>Simpan Draft</button>
-            <Link href="/scan" style={{ display: "inline-flex", alignItems: "center", padding: "12px 18px", borderRadius: 10, border: "1px solid #d1d5db", textDecoration: "none", color: "#111827" }}>Lanjut Scan</Link>
-          </div>
+          <button disabled={saving} type="submit" style={{ padding: "14px 18px", border: 0, borderRadius: 10, background: "#111827", color: "white", fontWeight: 700, cursor: saving ? "wait" : "pointer" }}>
+            {saving ? "Menyimpan..." : "Buat Manifest & Mulai Scan"}
+          </button>
         </form>
       </div>
     </main>
