@@ -54,14 +54,21 @@ export async function POST(_request: Request, context: Context) {
 
     const pdf = await generateManifestPdf({ ...manifest, total_awb: items.length }, items);
     const fileName = `${manifest.manifest_number}.pdf`;
+    const drive = getDriveClient();
 
+    // Existing PDFs may have been created by the old Service Account and are
+    // not accessible to the personal OAuth user. Try to update first, then
+    // transparently create a new user-owned file if the old file is unavailable.
     if (manifest.pdf_file_id) {
-      const drive = getDriveClient();
-      await drive.files.update({
-        fileId: manifest.pdf_file_id,
-        media: { mimeType: "application/pdf", body: Readable.from(pdf) },
-      });
-      return pdfResponse(pdf, fileName, "inline", manifest.pdf_file_id);
+      try {
+        await drive.files.update({
+          fileId: manifest.pdf_file_id,
+          media: { mimeType: "application/pdf", body: Readable.from(pdf) },
+        });
+        return pdfResponse(pdf, fileName, "inline", manifest.pdf_file_id);
+      } catch {
+        // Fall through to create a new PDF owned by the connected Google user.
+      }
     }
 
     const stored = await uploadManifestPdf(fileName, pdf);
