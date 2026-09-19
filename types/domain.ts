@@ -46,6 +46,8 @@ export interface Manifest {
   notes?: string;
   pdf_file_id?: string;
   pdf_url?: string;
+  handover_photo_file_id?: string;
+  handover_photo_url?: string;
 }
 
 export interface ManifestItem {
@@ -77,7 +79,7 @@ export const SHEET_HEADERS = {
   SELLERS: ["seller_id", "seller_code", "seller_name", "pic_name", "pic_phone", "address", "status", "created_at", "updated_at"],
   SPRINTERS: ["sprinter_id", "employee_code", "name", "phone", "drop_point", "status", "created_at", "updated_at"],
   USERS: ["user_id", "name", "email", "role", "drop_point", "status", "created_at"],
-  MANIFESTS: ["manifest_id", "manifest_number", "manifest_date", "shift", "drop_point", "sprinter_id", "seller_id", "seller_code", "pic_name", "pic_phone", "total_awb", "status", "created_by", "created_at", "updated_at", "handed_over_at", "received_by", "received_phone", "notes", "pdf_file_id", "pdf_url"],
+  MANIFESTS: ["manifest_id", "manifest_number", "manifest_date", "shift", "drop_point", "sprinter_id", "seller_id", "seller_code", "pic_name", "pic_phone", "total_awb", "status", "created_by", "created_at", "updated_at", "handed_over_at", "received_by", "received_phone", "notes", "pdf_file_id", "pdf_url", "handover_photo_file_id", "handover_photo_url"],
   MANIFEST_ITEMS: ["item_id", "manifest_id", "sequence", "awb", "status", "scanned_at", "scanned_by", "created_at"],
   LOGS: ["log_id", "timestamp", "user_id", "action", "manifest_id", "awb", "old_value", "new_value", "description", "device"]
 } as const;
