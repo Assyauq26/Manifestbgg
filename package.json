@@ -8,9 +8,6 @@
     "start": "next start"
   },
   "dependencies": {
-    "@vercel/oidc": "latest",
-    "google-auth-library": "latest",
-    "googleapis": "latest",
     "next": "latest",
     "pdfkit": "latest",
     "react": "latest",
